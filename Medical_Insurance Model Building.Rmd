@@ -1,0 +1,239 @@
+---
+title: "Medical Insurance Prediction using Logistic Regression"
+author: "ERICK MUNENE"
+date: "5/29/2022"
+output:
+  word_document: default
+  html_document: default
+---
+
+## Introduction
+
+<!--hhhh--> In this analysis,I am developing a predictive model that will be used to predict the number of people who are likely to purchase medical insurance in a given day or reject the medical insurance. Hence, those who purchased, and  not purchased the medical insurance.
+
+This is a model which is used mostly in predictive analytics scenario.
+
+
+### Importing data
+
+```{r ,echo=TRUE}
+# loading dataset in R for analysis
+medical_insur <- read.csv("C:/Users/kariuki Reuben/Downloads/Medical_insurance_dataset - Medical_insurance_dataset.csv")
+
+# loading necessary library for this project
+library("tidyverse")
+library("data.table")
+library("dplyr")
+library("gridExtra")
+library("scales")
+
+# class of the dataset
+
+class(medical_insur)# identifying the class of the dataset
+
+names(medical_insur)# exploring all the available attributes in the dataset
+
+```
+
+
+## Descriptive Analytics of the dataset
+
+<!--hrhh---> There is need to carry out the encoding in the variables to make it more easy when coming up with predictive model.
+
+
+```{r,echo=TRUE}
+glimpse(medical_insur) # the structure of the dataset
+
+summary(medical_insur)# summary statistics of the dataset
+
+```
+<!---cncnb--> From the summary statistics there is clear evidence that data is fit to carry out model training since no presence of outliers in the dataset.
+
+## Future Encoding 
+
+```{r ,echo=TRUE}
+medical_insur$Purchased= (factor(medical_insur$Purchased,
+                           levels = c('not-purchased', 'purchased'), labels = c(0, 1)))
+
+medical_insur$Gender = (factor(medical_insur$Gender,levels = c("Female","Male"),labels = c(0,1)))
+
+
+sum(is.na(medical_insur))# no presence of missing values and the data is ready for visualization and model building.
+
+
+```
+
+
+### Data Visualization 1
+
+```{r,echo=TRUE}
+# data visualization
+
+sex<- medical_insur %>% group_by(Gender )  
+ggplot(sex) + geom_bar(aes(x=Gender,fill = "red"))  + labs(title="THE SAMPLE SEX") + xlab("GENDER") + ylab("Frequency")
+
+purchased<- medical_insur%>% group_by(Purchased)  
+ggplot(purchased) + geom_bar(aes(x=Purchased ,fill = "blue"))  + labs(title="DISTRIBUTION OF MEDICAL INSURANCE BUYER'S") + xlab("PURCHASED") + ylab("Frequency")
+
+```
+-**Answer** 
++ From the visualization the total number of Females are more than Male in the dataset. This will assist us in identifying which gender is more likely to purchase the medical insurance.
+
++ From the second chart, the total number of people not purchasing the medical insurance are more than those purchasing medical insurance.
+
++ There is need of more aggressive marketing to ensure that the company gets more people purchasing the medical insurance. 
+
+
+### Data Visualization 2
+
+```{r,echo=TRUE}
+
+set.seed(123)# to make my work reproducedable
+
+hist(medical_insur$Age,breaks = 30,col = "red")# there is a normal distribution in the age column
+
+hist(medical_insur$EstimatedSalary,breaks = 30 , col = "green")# the dataset is normally distributed.
+
+```
+
+-**Answer**
++ From the first chart, the distribution of Age column is normal distribution, with the dorminant age in the range of 30-40 years.
+
++ From the second chart, the distribution of Salary column is normal with the maximum salary between 50,000 and 90,0000.
+
+### Model Building
+
+```{r,echo=TRUE}
+# model building
+library(caTools)
+
+medical_pred = sample.split(medical_insur$Purchased,SplitRatio = 0.80)
+
+train_data = subset(medical_insur,medical_pred ==TRUE)
+
+test_data = subset(medical_insur,medical_pred == FALSE)
+
+
+# Run GLM Model with one variable
+
+logistic_1<- glm( Purchased~., family = "binomial", data = train_data)
+summary(logistic_1)# summary statistics of the model
+
+
+```
+-**Answer**
+
+- Gender and ID number are not signficant variable in predicting the number of people to purchase the medical insurance
+
+- One of the most significant variable to consinder is the Age and Estimated Salary
+
++ This might open up our mind in determing the correct age bracket to target while marketing and selling these medical insurance.
+
+- Also we have a hint of the right salary bracket of these people purchasing the medical insurance and those not buying the medical cover.
+
+### PLOT the logistic model
+
+-**Answer**
+
++ Provide the assumption of logistic model
+
+
+```{r ,echo=TRUE}
+# plot the logistic model outputs
+
+plot(logistic_1)
+
+```
+
+### Developing prediction from the model
+
+-**Answer**
+
+- testing how the logistic model will perform on a new dataset 
+
+```{r,echo=TRUE}
+# testing the model using a new data 
+predict_medical <- predict(logistic_1, newdata=test_data, type = 'response')
+
+# Construct a confusion matrix for the prdicted values
+
+y_predict<-table(test_data$Purchased, predict_medical > 0.5)
+y_predict
+
+
+# accuaracy of the model will be
+
+Accuracy = (44+21)/(44+7+8+21)
+
+Accuracy
+
+# model is perfoming well and given us a prediction accuaracy of 81.25%
+
+# the baseline accuracy is 0.8125= 81.25%
+dimnames(y_predict)[[1]]=c("A","B")
+dimnames(y_predict)[[2]]= c("A","B")
+y_predict
+
+
+##code for specificity $ sensitivity ,and accuracy
+library(caret)
+
+confusionMatrix(y_predict)
+
+```
+
+### Plotting the ROCR CURVE 
+
+```{r,echo=TRUE}
+#ROCR Curve
+#install.packages("ROCR")
+library(ROCR)
+
+# identifying the prediction instance
+ROCRpred <- prediction(predict_medical, test_data$Purchased)
+
+ROCRpred
+
+# identifying the perfomance instance
+perf <- performance(ROCRpred,"tpr","fpr")
+perf
+
+# plotting the ROCR CURVE
+
+plot(perf,colorize = TRUE)
+
+
+```
+
+### Precision Curve
+
+```{r,echo=TRUE}
+# performance instance
+perf <- performance(ROCRpred, "prec", "rec")
+perf
+
+# the plot of precision
+
+plot(perf,colorize = TRUE)
+
+
+```
+
+
+### Plottin the Sensitivity Curve & Specificity 
+
+
+```{r,echo=TRUE}
+# sensitivity/specificity curve (x-axis: specificity,
+# y-axis: sensitivity)
+perf <- performance(ROCRpred, "sens", "spec")
+perf
+
+
+# plotting the curve
+
+plot(perf,colorize = TRUE)
+```
+
+## Welcome to the End of my  Analysis
+#### Munene
